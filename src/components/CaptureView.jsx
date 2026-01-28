@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { createHomeworkZip } from '../utils/ZipService';
+import { createHomeworkPdf } from '../utils/PdfService';
 
 export default function CaptureView({ meta, onReset }) {
     const [photos, setPhotos] = useState([]);
     const [isZipping, setIsZipping] = useState(false);
+    const [isPdfing, setIsPdfing] = useState(false);
     const fileInputRef = useRef(null);
 
     const baseName = `${meta.initials}${meta.className}Week${meta.week}HW`;
@@ -32,6 +34,20 @@ export default function CaptureView({ meta, onReset }) {
             alert('Failed to create zip file. Please try again.');
         } finally {
             setIsZipping(false);
+        }
+    };
+
+    const handlePdf = async () => {
+        if (photos.length === 0) return;
+
+        setIsPdfing(true);
+        try {
+            await createHomeworkPdf(meta, photos);
+        } catch (error) {
+            console.error('Error creating PDF:', error);
+            alert('Failed to create PDF file. Please try again.');
+        } finally {
+            setIsPdfing(false);
         }
     };
 
@@ -93,7 +109,7 @@ export default function CaptureView({ meta, onReset }) {
                 <button
                     className="btn btn-success"
                     onClick={handleZip}
-                    disabled={photos.length === 0 || isZipping}
+                    disabled={photos.length === 0 || isZipping || isPdfing}
                 >
                     {isZipping ? (
                         <>
@@ -102,6 +118,22 @@ export default function CaptureView({ meta, onReset }) {
                         </>
                     ) : (
                         <>📦 Finish & Download Zip</>
+                    )}
+                </button>
+
+                <button
+                    className="btn"
+                    style={{ background: 'linear-gradient(135deg, #ef4444, #f87171)' }}
+                    onClick={handlePdf}
+                    disabled={photos.length === 0 || isZipping || isPdfing}
+                >
+                    {isPdfing ? (
+                        <>
+                            <span className="spinner"></span>
+                            Creating PDF...
+                        </>
+                    ) : (
+                        <>📄 Finish & Download PDF</>
                     )}
                 </button>
 
