@@ -86,19 +86,19 @@ export function applyPerspectiveCorrection(image, corners, outputWidth = 816, ou
 }
 
 /**
- * Applies adaptive lighting correction to handle uneven illumination.
- * Uses local brightness normalization to reduce shadows and flash hotspots.
+ * Applies document mode enhancement - makes paper white and ink black.
+ * Uses local thresholding to handle uneven lighting including flash hotspots.
  * 
  * @param {HTMLCanvasElement} canvas - The source canvas
  * @param {Object} options - Options
- * @param {number} options.blockSize - Size of blocks for local analysis (default 32)
- * @param {number} options.strength - Correction strength 0-1 (default 0.7)
- * @returns {HTMLCanvasElement} - Corrected canvas
+ * @param {number} options.blockSize - Size of blocks for local analysis (default 16)
+ * @param {number} options.whitePoint - How aggressively to push light areas to white (0-1, default 0.85)
+ * @returns {HTMLCanvasElement} - Processed canvas
  */
-export function adaptiveLightingCorrection(canvas, options = {}) {
+export function applyDocumentMode(canvas, options = {}) {
     const {
-        blockSize = 24,
-        strength = 0.9
+        blockSize = 16,
+        whitePoint = 0.85
     } = options;
 
     const ctx = canvas.getContext('2d');
@@ -111,10 +111,15 @@ export function adaptiveLightingCorrection(canvas, options = {}) {
     const blocksX = Math.ceil(width / blockSize);
     const blocksY = Math.ceil(height / blockSize);
 
-    // Calculate average brightness for each block
-    const blockBrightness = new Float32Array(blocksX * blocksY);
-    const blockCounts = new Uint32Array(blocksX * blocksY);
+    // For each block, find min and max brightness
+    const blockMin = new Float32Array(blocksX * blocksY);
+    const blockMax = new Float32Array(blocksX * blocksY);
 
+    // Initialize
+    blockMin.fill(255);
+    blockMax.fill(0);
+
+    // First pass: find min/max for each block
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = (y * width + x) * 4;
@@ -124,35 +129,17 @@ export function adaptiveLightingCorrection(canvas, options = {}) {
             const by = Math.floor(y / blockSize);
             const blockIdx = by * blocksX + bx;
 
-            blockBrightness[blockIdx] += brightness;
-            blockCounts[blockIdx]++;
+            blockMin[blockIdx] = Math.min(blockMin[blockIdx], brightness);
+            blockMax[blockIdx] = Math.max(blockMax[blockIdx], brightness);
         }
     }
 
-    // Average the block brightness
-    for (let i = 0; i < blockBrightness.length; i++) {
-        if (blockCounts[i] > 0) {
-            blockBrightness[i] /= blockCounts[i];
-        }
-    }
-
-    // Calculate global average brightness
-    let globalBrightness = 0;
-    for (let i = 0; i < blockBrightness.length; i++) {
-        globalBrightness += blockBrightness[i];
-    }
-    globalBrightness /= blockBrightness.length;
-
-    // Target brightness - use global average for even correction
-    // This normalizes both shadows (dark) and hotspots (bright) toward the average
-    const targetBrightness = globalBrightness;
-
-    // Apply adaptive correction
+    // Second pass: apply local contrast stretching
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = (y * width + x) * 4;
 
-            // Get interpolated local brightness using bilinear interpolation
+            // Get interpolated local min/max using bilinear interpolation
             const fx = (x / blockSize) - 0.5;
             const fy = (y / blockSize) - 0.5;
 
@@ -164,34 +151,49 @@ export function adaptiveLightingCorrection(canvas, options = {}) {
             const tx = Math.max(0, Math.min(1, fx - bx0));
             const ty = Math.max(0, Math.min(1, fy - by0));
 
-            // Bilinear interpolation of local brightness
-            const b00 = blockBrightness[by0 * blocksX + bx0];
-            const b10 = blockBrightness[by0 * blocksX + bx1];
-            const b01 = blockBrightness[by1 * blocksX + bx0];
-            const b11 = blockBrightness[by1 * blocksX + bx1];
+            // Bilinear interpolation of local min
+            const localMin =
+                blockMin[by0 * blocksX + bx0] * (1 - tx) * (1 - ty) +
+                blockMin[by0 * blocksX + bx1] * tx * (1 - ty) +
+                blockMin[by1 * blocksX + bx0] * (1 - tx) * ty +
+                blockMin[by1 * blocksX + bx1] * tx * ty;
 
-            const localBrightness =
-                b00 * (1 - tx) * (1 - ty) +
-                b10 * tx * (1 - ty) +
-                b01 * (1 - tx) * ty +
-                b11 * tx * ty;
+            // Bilinear interpolation of local max
+            const localMax =
+                blockMax[by0 * blocksX + bx0] * (1 - tx) * (1 - ty) +
+                blockMax[by0 * blocksX + bx1] * tx * (1 - ty) +
+                blockMax[by1 * blocksX + bx0] * (1 - tx) * ty +
+                blockMax[by1 * blocksX + bx1] * tx * ty;
 
-            // Calculate correction factor
-            // If local area is dark (shadow), brighten it
-            // If local area is bright (flash), dim it slightly
-            let correctionFactor = 1;
-            if (localBrightness > 0) {
-                correctionFactor = targetBrightness / localBrightness;
-                // Blend with 1.0 based on strength
-                correctionFactor = 1 + (correctionFactor - 1) * strength;
-                // Limit extreme corrections
-                correctionFactor = Math.max(0.5, Math.min(2.0, correctionFactor));
+            // Calculate the threshold for this local area
+            // Pixels above this are considered "paper" and pushed toward white
+            const range = localMax - localMin;
+            const threshold = localMin + range * whitePoint;
+
+            // Process each channel
+            for (let c = 0; c < 3; c++) {
+                let value = data[idx + c];
+
+                if (range > 20) { // Only apply if there's meaningful contrast
+                    // Stretch the local range to 0-255
+                    // This makes the darkest local pixels darker and brightest lighter
+                    const normalized = (value - localMin) / range;
+
+                    // Apply a curve that pushes paper toward white more aggressively
+                    // Values above threshold get pushed harder toward 255
+                    let adjusted;
+                    if (value > threshold) {
+                        // Paper - push toward white
+                        const paperRatio = (value - threshold) / (localMax - threshold + 1);
+                        adjusted = 255 - (1 - paperRatio) * 40; // Paper becomes 215-255
+                    } else {
+                        // Ink and content - preserve but enhance
+                        adjusted = normalized * 215; // Ink becomes 0-215
+                    }
+
+                    data[idx + c] = Math.max(0, Math.min(255, adjusted));
+                }
             }
-
-            // Apply correction
-            data[idx] = Math.min(255, data[idx] * correctionFactor);
-            data[idx + 1] = Math.min(255, data[idx + 1] * correctionFactor);
-            data[idx + 2] = Math.min(255, data[idx + 2] * correctionFactor);
         }
     }
 
@@ -268,19 +270,18 @@ export async function processDocument(image, corners, options = {}) {
         brightness = 10,
         grayscale = false,
         quality = 0.92,
-        adaptiveLighting = true,
-        lightingStrength = 0.9
+        documentMode = true
     } = options;
 
     // Apply perspective correction
     let canvas = applyPerspectiveCorrection(image, corners, outputWidth, outputHeight);
 
-    // Apply adaptive lighting correction to handle shadows and flash hotspots
-    if (adaptiveLighting) {
-        canvas = adaptiveLightingCorrection(canvas, { strength: lightingStrength });
+    // Apply document mode enhancement (handles flash hotspots and makes paper white)
+    if (documentMode) {
+        canvas = applyDocumentMode(canvas);
     }
 
-    // Apply document enhancement
+    // Apply additional contrast/brightness enhancement
     canvas = enhanceDocument(canvas, { contrast, brightness, grayscale });
 
     // Convert to blob
