@@ -97,8 +97,8 @@ export function applyPerspectiveCorrection(image, corners, outputWidth = 816, ou
  */
 export function adaptiveLightingCorrection(canvas, options = {}) {
     const {
-        blockSize = 32,
-        strength = 0.7
+        blockSize = 24,
+        strength = 0.9
     } = options;
 
     const ctx = canvas.getContext('2d');
@@ -143,8 +143,9 @@ export function adaptiveLightingCorrection(canvas, options = {}) {
     }
     globalBrightness /= blockBrightness.length;
 
-    // Target brightness (we want backgrounds to be white-ish)
-    const targetBrightness = Math.max(globalBrightness, 200);
+    // Target brightness - use global average for even correction
+    // This normalizes both shadows (dark) and hotspots (bright) toward the average
+    const targetBrightness = globalBrightness;
 
     // Apply adaptive correction
     for (let y = 0; y < height; y++) {
@@ -268,7 +269,7 @@ export async function processDocument(image, corners, options = {}) {
         grayscale = false,
         quality = 0.92,
         adaptiveLighting = true,
-        lightingStrength = 0.7
+        lightingStrength = 0.9
     } = options;
 
     // Apply perspective correction
