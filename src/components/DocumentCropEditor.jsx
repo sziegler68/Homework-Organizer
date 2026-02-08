@@ -17,8 +17,9 @@ export default function DocumentCropEditor({ imageFile, onConfirm, onCancel }) {
 
     // Magnifier settings
     const MAGNIFIER_SIZE = 120;
-    const MAGNIFIER_ZOOM = 1.5;
+    const MAGNIFIER_ZOOM = 1.0; // 1:1, no zoom
     const MAGNIFIER_OFFSET = 80; // Distance above finger
+    const SMOOTHING = 0.4; // Smoothing factor for corner movement (0-1, lower = smoother)
 
     // Load image on mount
     useEffect(() => {
@@ -174,10 +175,15 @@ export default function DocumentCropEditor({ imageFile, onConfirm, onCancel }) {
         const clampedY = Math.max(0, Math.min(image.naturalHeight, imgCoords.y));
 
         if (activeHandle.type === 'corner') {
-            // Move single corner
+            // Move single corner with smoothing
             setCorners((prev) => {
                 const newCorners = [...prev];
-                newCorners[activeHandle.index] = { x: clampedX, y: clampedY };
+                const current = prev[activeHandle.index];
+                // Interpolate between current position and target for smooth movement
+                newCorners[activeHandle.index] = {
+                    x: current.x + (clampedX - current.x) * SMOOTHING,
+                    y: current.y + (clampedY - current.y) * SMOOTHING
+                };
                 return newCorners;
             });
         } else if (activeHandle.type === 'edge') {
