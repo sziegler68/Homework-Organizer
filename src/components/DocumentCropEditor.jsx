@@ -17,7 +17,7 @@ export default function DocumentCropEditor({ imageFile, onConfirm, onCancel }) {
 
     // Magnifier settings
     const MAGNIFIER_SIZE = 120;
-    const MAGNIFIER_ZOOM = 1.0; // 1:1, no zoom
+    const MAGNIFIER_ZOOM = 0.3; // Zoomed out to show more context
     const MAGNIFIER_OFFSET = 80; // Distance above finger
     const SMOOTHING = 0.4; // Smoothing factor for corner movement (0-1, lower = smoother)
 
