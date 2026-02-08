@@ -333,3 +333,130 @@ body {
     padding: 32px;
   }
 }
+
+/* === Document Crop Editor === */
+.crop-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg-gradient-start);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.crop-editor-header {
+  text-align: center;
+  padding: 8px 0 16px;
+}
+
+.crop-editor-header h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.crop-editor-header p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.crop-editor-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+.crop-editor-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.crop-editor-image-wrapper {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.crop-editor-image-wrapper img {
+  display: block;
+  pointer-events: none;
+}
+
+.crop-editor-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.crop-corner-handle {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.crop-corner-handle:active,
+.crop-corner-handle.active {
+  cursor: grabbing;
+}
+
+.corner-inner {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s, background-color 0.15s;
+}
+
+.crop-corner-handle:hover .corner-inner,
+.crop-corner-handle.active .corner-inner {
+  transform: scale(1.2);
+  background: var(--accent-hover);
+}
+
+.crop-editor-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.crop-editor-actions .btn {
+  flex: 1;
+}
+
+/* Processing overlay */
+.processing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  background: rgba(15, 12, 41, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.processing-overlay p {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
