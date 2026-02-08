@@ -86,8 +86,121 @@ export function applyPerspectiveCorrection(image, corners, outputWidth = 816, ou
 }
 
 /**
+ * Applies adaptive lighting correction to handle uneven illumination.
+ * Uses local brightness normalization to reduce shadows and flash hotspots.
+ * 
+ * @param {HTMLCanvasElement} canvas - The source canvas
+ * @param {Object} options - Options
+ * @param {number} options.blockSize - Size of blocks for local analysis (default 32)
+ * @param {number} options.strength - Correction strength 0-1 (default 0.7)
+ * @returns {HTMLCanvasElement} - Corrected canvas
+ */
+export function adaptiveLightingCorrection(canvas, options = {}) {
+    const {
+        blockSize = 32,
+        strength = 0.7
+    } = options;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+
+    // Calculate number of blocks
+    const blocksX = Math.ceil(width / blockSize);
+    const blocksY = Math.ceil(height / blockSize);
+
+    // Calculate average brightness for each block
+    const blockBrightness = new Float32Array(blocksX * blocksY);
+    const blockCounts = new Uint32Array(blocksX * blocksY);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+
+            const bx = Math.floor(x / blockSize);
+            const by = Math.floor(y / blockSize);
+            const blockIdx = by * blocksX + bx;
+
+            blockBrightness[blockIdx] += brightness;
+            blockCounts[blockIdx]++;
+        }
+    }
+
+    // Average the block brightness
+    for (let i = 0; i < blockBrightness.length; i++) {
+        if (blockCounts[i] > 0) {
+            blockBrightness[i] /= blockCounts[i];
+        }
+    }
+
+    // Calculate global average brightness
+    let globalBrightness = 0;
+    for (let i = 0; i < blockBrightness.length; i++) {
+        globalBrightness += blockBrightness[i];
+    }
+    globalBrightness /= blockBrightness.length;
+
+    // Target brightness (we want backgrounds to be white-ish)
+    const targetBrightness = Math.max(globalBrightness, 200);
+
+    // Apply adaptive correction
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+
+            // Get interpolated local brightness using bilinear interpolation
+            const fx = (x / blockSize) - 0.5;
+            const fy = (y / blockSize) - 0.5;
+
+            const bx0 = Math.max(0, Math.floor(fx));
+            const by0 = Math.max(0, Math.floor(fy));
+            const bx1 = Math.min(blocksX - 1, bx0 + 1);
+            const by1 = Math.min(blocksY - 1, by0 + 1);
+
+            const tx = Math.max(0, Math.min(1, fx - bx0));
+            const ty = Math.max(0, Math.min(1, fy - by0));
+
+            // Bilinear interpolation of local brightness
+            const b00 = blockBrightness[by0 * blocksX + bx0];
+            const b10 = blockBrightness[by0 * blocksX + bx1];
+            const b01 = blockBrightness[by1 * blocksX + bx0];
+            const b11 = blockBrightness[by1 * blocksX + bx1];
+
+            const localBrightness =
+                b00 * (1 - tx) * (1 - ty) +
+                b10 * tx * (1 - ty) +
+                b01 * (1 - tx) * ty +
+                b11 * tx * ty;
+
+            // Calculate correction factor
+            // If local area is dark (shadow), brighten it
+            // If local area is bright (flash), dim it slightly
+            let correctionFactor = 1;
+            if (localBrightness > 0) {
+                correctionFactor = targetBrightness / localBrightness;
+                // Blend with 1.0 based on strength
+                correctionFactor = 1 + (correctionFactor - 1) * strength;
+                // Limit extreme corrections
+                correctionFactor = Math.max(0.5, Math.min(2.0, correctionFactor));
+            }
+
+            // Apply correction
+            data[idx] = Math.min(255, data[idx] * correctionFactor);
+            data[idx + 1] = Math.min(255, data[idx + 1] * correctionFactor);
+            data[idx + 2] = Math.min(255, data[idx + 2] * correctionFactor);
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+}
+
+/**
  * Enhances an image to look like a scanned document.
- * Applies contrast boost and background whitening.
+ * Applies contrast boost and ensures text is dark on white background.
  * 
  * @param {HTMLCanvasElement} canvas - The source canvas
  * @param {Object} options - Enhancement options
@@ -98,24 +211,14 @@ export function applyPerspectiveCorrection(image, corners, outputWidth = 816, ou
  */
 export function enhanceDocument(canvas, options = {}) {
     const {
-        contrast = 1.4,
-        brightness = 20,
+        contrast = 1.5,
+        brightness = 10,
         grayscale = false
     } = options;
 
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
-
-    // Calculate average brightness for adaptive thresholding
-    let totalBrightness = 0;
-    for (let i = 0; i < data.length; i += 4) {
-        totalBrightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
-    }
-    const avgBrightness = totalBrightness / (data.length / 4);
-
-    // Dynamic brightness adjustment based on image
-    const adaptiveBrightness = brightness + (128 - avgBrightness) * 0.3;
 
     for (let i = 0; i < data.length; i += 4) {
         let r = data[i];
@@ -134,9 +237,9 @@ export function enhanceDocument(canvas, options = {}) {
         b = ((b - 128) * contrast) + 128;
 
         // Apply brightness
-        r += adaptiveBrightness;
-        g += adaptiveBrightness;
-        b += adaptiveBrightness;
+        r += brightness;
+        g += brightness;
+        b += brightness;
 
         // Clamp values
         data[i] = Math.max(0, Math.min(255, r));
@@ -160,14 +263,21 @@ export async function processDocument(image, corners, options = {}) {
     const {
         outputWidth = 816,  // 8.5" at 96dpi
         outputHeight = 1056, // 11" at 96dpi
-        contrast = 1.4,
-        brightness = 20,
+        contrast = 1.5,
+        brightness = 10,
         grayscale = false,
-        quality = 0.92
+        quality = 0.92,
+        adaptiveLighting = true,
+        lightingStrength = 0.7
     } = options;
 
     // Apply perspective correction
     let canvas = applyPerspectiveCorrection(image, corners, outputWidth, outputHeight);
+
+    // Apply adaptive lighting correction to handle shadows and flash hotspots
+    if (adaptiveLighting) {
+        canvas = adaptiveLightingCorrection(canvas, { strength: lightingStrength });
+    }
 
     // Apply document enhancement
     canvas = enhanceDocument(canvas, { contrast, brightness, grayscale });
