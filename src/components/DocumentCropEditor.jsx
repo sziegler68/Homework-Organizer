@@ -17,7 +17,7 @@ export default function DocumentCropEditor({ imageFile, onConfirm, onCancel }) {
 
     // Magnifier settings
     const MAGNIFIER_SIZE = 120;
-    const MAGNIFIER_ZOOM = 2.5;
+    const MAGNIFIER_ZOOM = 1.5;
     const MAGNIFIER_OFFSET = 80; // Distance above finger
 
     // Load image on mount
