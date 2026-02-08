@@ -24,7 +24,9 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
 }
@@ -279,8 +281,15 @@ body {
 
 /* === Animations === */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fade-in {
@@ -288,8 +297,15 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
 }
 
 .pulse {
@@ -320,7 +336,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* === Responsive === */
@@ -328,7 +346,7 @@ body {
   .app-title {
     font-size: 2.2rem;
   }
-  
+
   .glass-panel {
     padding: 32px;
   }
@@ -409,7 +427,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  z-index: 12;
 }
 
 .crop-corner-handle:active,
@@ -431,6 +449,64 @@ body {
 .crop-corner-handle.active .corner-inner {
   transform: scale(1.2);
   background: var(--accent-hover);
+}
+
+/* Edge handles */
+.crop-edge-handle {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+}
+
+.crop-edge-handle:active,
+.crop-edge-handle.active {
+  cursor: grabbing;
+}
+
+.edge-inner {
+  background: var(--success);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s, background-color 0.15s;
+}
+
+.crop-edge-handle.horizontal .edge-inner {
+  width: 32px;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.crop-edge-handle.vertical .edge-inner {
+  width: 10px;
+  height: 32px;
+  border-radius: 5px;
+}
+
+.crop-edge-handle:hover .edge-inner,
+.crop-edge-handle.active .edge-inner {
+  transform: scale(1.15);
+  background: #34d399;
+}
+
+/* Magnifier bubble */
+.crop-magnifier {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 100;
+}
+
+.crop-magnifier canvas {
+  display: block;
 }
 
 .crop-editor-actions {
