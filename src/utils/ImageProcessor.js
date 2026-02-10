@@ -269,19 +269,13 @@ export async function processDocument(image, corners, options = {}) {
         contrast = 1.5,
         brightness = 10,
         grayscale = false,
-        quality = 0.92,
-        documentMode = true
+        quality = 0.92
     } = options;
 
     // Apply perspective correction
     let canvas = applyPerspectiveCorrection(image, corners, outputWidth, outputHeight);
 
-    // Apply document mode enhancement (handles flash hotspots and makes paper white)
-    if (documentMode) {
-        canvas = applyDocumentMode(canvas);
-    }
-
-    // Apply additional contrast/brightness enhancement
+    // Apply simple contrast/brightness enhancement
     canvas = enhanceDocument(canvas, { contrast, brightness, grayscale });
 
     // Convert to blob
