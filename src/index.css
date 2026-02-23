@@ -196,9 +196,15 @@ body {
   margin-top: 4px;
 }
 
+.capture-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
 .capture-btn-wrapper {
   position: relative;
-  margin-bottom: 24px;
+  flex: 1;
 }
 
 .capture-btn-wrapper input[type="file"] {
@@ -209,8 +215,21 @@ body {
 }
 
 .capture-btn {
-  font-size: 1.2rem;
-  padding: 20px 24px;
+  font-size: 1.1rem;
+  padding: 18px 12px;
+}
+
+.gallery-btn {
+  font-size: 1rem;
+  padding: 18px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  box-shadow: none;
+}
+
+.gallery-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
 }
 
 /* === Photo Gallery === */

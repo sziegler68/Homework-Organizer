@@ -12,9 +12,11 @@ export default function CaptureView({ meta, onReset }) {
 
     // Document scanning state
     const [pendingPhoto, setPendingPhoto] = useState(null);
+    const [galleryQueue, setGalleryQueue] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
 
     const fileInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
     const baseName = `${meta.initials}${meta.className}Week${meta.week}HW`;
 
@@ -26,6 +28,19 @@ export default function CaptureView({ meta, onReset }) {
             setPendingPhoto(files[0]);
         }
         // Reset input so the same file can be selected again if needed
+        e.target.value = '';
+    };
+
+    // Handle gallery selection - queue files and process one at a time
+    const handleGallerySelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            // First file goes straight to crop editor, rest are queued
+            setPendingPhoto(files[0]);
+            if (files.length > 1) {
+                setGalleryQueue(files.slice(1));
+            }
+        }
         e.target.value = '';
     };
 
@@ -60,13 +75,21 @@ export default function CaptureView({ meta, onReset }) {
             alert('Failed to process document. Please try again.');
         } finally {
             setIsProcessing(false);
-            setPendingPhoto(null);
+            // If there are queued gallery images, load the next one
+            if (galleryQueue.length > 0) {
+                const [next, ...rest] = galleryQueue;
+                setPendingPhoto(next);
+                setGalleryQueue(rest);
+            } else {
+                setPendingPhoto(null);
+            }
         }
     };
 
     // Handle crop cancel
     const handleCropCancel = () => {
         setPendingPhoto(null);
+        setGalleryQueue([]); // Clear any remaining queued gallery images
     };
 
     const handleRemove = (index) => {
@@ -130,18 +153,32 @@ export default function CaptureView({ meta, onReset }) {
                     </div>
                 </div>
 
-                {/* Capture Button */}
-                <div className="capture-btn-wrapper">
-                    <button className="btn capture-btn pulse">
-                        📷 Scan Page {photos.length + 1}
-                    </button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleCapture}
-                    />
+                {/* Capture & Gallery Buttons */}
+                <div className="capture-actions">
+                    <div className="capture-btn-wrapper">
+                        <button className="btn capture-btn pulse">
+                            📷 Scan Page {photos.length + 1}
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleCapture}
+                        />
+                    </div>
+                    <div className="capture-btn-wrapper gallery-btn-wrapper">
+                        <button className="btn gallery-btn">
+                            🖼️ Gallery
+                        </button>
+                        <input
+                            ref={galleryInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleGallerySelect}
+                        />
+                    </div>
                 </div>
 
                 {/* Photo Gallery */}
