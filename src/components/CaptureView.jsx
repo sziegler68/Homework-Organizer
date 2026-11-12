@@ -72,7 +72,7 @@ export default function CaptureView({ meta, onReset }) {
             setPhotos((prev) => [...prev, processedFile]);
         } catch (error) {
             console.error('Error processing document:', error);
-            alert('Failed to process document. Please try again.');
+            alert('Failed to process document: ' + (error.message || error));
         } finally {
             setIsProcessing(false);
             // If there are queued gallery images, load the next one

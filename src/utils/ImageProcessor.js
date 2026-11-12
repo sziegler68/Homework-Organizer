@@ -279,8 +279,14 @@ export async function processDocument(image, corners, options = {}) {
     canvas = enhanceDocument(canvas, { contrast, brightness, grayscale });
 
     // Convert to blob
-    return new Promise((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', quality);
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Canvas toBlob failed — the browser could not encode the image.'));
+            }
+        }, 'image/jpeg', quality);
     });
 }
 
