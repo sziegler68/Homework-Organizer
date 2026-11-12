@@ -555,3 +555,27 @@ body {
   font-size: 1.1rem;
   color: var(--text-primary);
 }
+
+/* === Debug Bar === */
+.debug-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.debug-badge {
+  font-size: 0.85rem;
+  color: #fca5a5;
+  flex: 1;
+}
+
+.debug-btn {
+  font-size: 0.75rem !important;
+  padding: 6px 10px !important;
+  min-width: 0 !important;
+}

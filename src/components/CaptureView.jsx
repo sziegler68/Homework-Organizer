@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { createHomeworkZip } from '../utils/ZipService';
 import { createHomeworkPdf } from '../utils/PdfService';
 import { loadImage, processDocument } from '../utils/ImageProcessor';
+import { log, getEntries, downloadLog, clearLog } from '../utils/ErrorLogger';
 import DocumentCropEditor from './DocumentCropEditor';
 
 export default function CaptureView({ meta, onReset }) {
@@ -15,6 +16,9 @@ export default function CaptureView({ meta, onReset }) {
     const [galleryQueue, setGalleryQueue] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Error log badge count (drives re-render when errors are logged)
+    const [errorCount, setErrorCount] = useState(getEntries().length);
+
     const fileInputRef = useRef(null);
     const galleryInputRef = useRef(null);
 
@@ -24,6 +28,11 @@ export default function CaptureView({ meta, onReset }) {
     const handleCapture = (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
+            log('info', 'CaptureView.handleCapture', 'Photo captured', {
+                fileName: files[0].name,
+                fileSize: files[0].size,
+                fileType: files[0].type,
+            });
             // Open the crop editor with the first captured image
             setPendingPhoto(files[0]);
         }
@@ -35,6 +44,9 @@ export default function CaptureView({ meta, onReset }) {
     const handleGallerySelect = (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
+            log('info', 'CaptureView.handleGallerySelect', `${files.length} file(s) selected`, {
+                files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
+            });
             // First file goes straight to crop editor, rest are queued
             setPendingPhoto(files[0]);
             if (files.length > 1) {
@@ -49,16 +61,30 @@ export default function CaptureView({ meta, onReset }) {
         if (!pendingPhoto) return;
 
         setIsProcessing(true);
+        log('info', 'CaptureView.handleCropConfirm', 'Starting crop processing', {
+            fileName: pendingPhoto.name,
+            fileSize: pendingPhoto.size,
+            corners,
+        });
 
         try {
             // Load the image
             const img = await loadImage(pendingPhoto);
+            log('info', 'CaptureView.handleCropConfirm', 'Image loaded', {
+                naturalWidth: img.naturalWidth || img.width,
+                naturalHeight: img.naturalHeight || img.height,
+            });
 
             // Process the document (perspective correction + enhancement)
             const processedBlob = await processDocument(img, corners, {
                 contrast: 1.4,
                 brightness: 20,
                 grayscale: false
+            });
+
+            log('info', 'CaptureView.handleCropConfirm', 'Document processed', {
+                blobSize: processedBlob?.size,
+                blobType: processedBlob?.type,
             });
 
             // Create a File object from the blob for consistency
@@ -71,7 +97,13 @@ export default function CaptureView({ meta, onReset }) {
             // Add to photos array
             setPhotos((prev) => [...prev, processedFile]);
         } catch (error) {
-            console.error('Error processing document:', error);
+            log('error', 'CaptureView.handleCropConfirm', 'Failed to process document', {
+                fileName: pendingPhoto?.name,
+                fileSize: pendingPhoto?.size,
+                fileType: pendingPhoto?.type,
+                corners,
+            }, error);
+            setErrorCount(getEntries().length);
             alert('Failed to process document: ' + (error.message || error));
         } finally {
             setIsProcessing(false);
@@ -103,8 +135,9 @@ export default function CaptureView({ meta, onReset }) {
         try {
             await createHomeworkZip(meta, photos);
         } catch (error) {
-            console.error('Error creating zip:', error);
-            alert('Failed to create zip file. Please try again.');
+            log('error', 'CaptureView.handleZip', 'Failed to create zip', {}, error);
+            setErrorCount(getEntries().length);
+            alert('Failed to create zip file: ' + (error.message || error));
         } finally {
             setIsZipping(false);
         }
@@ -117,11 +150,21 @@ export default function CaptureView({ meta, onReset }) {
         try {
             await createHomeworkPdf(meta, photos);
         } catch (error) {
-            console.error('Error creating PDF:', error);
-            alert('Failed to create PDF file. Please try again.');
+            log('error', 'CaptureView.handlePdf', 'Failed to create PDF', {}, error);
+            setErrorCount(getEntries().length);
+            alert('Failed to create PDF file: ' + (error.message || error));
         } finally {
             setIsPdfing(false);
         }
+    };
+
+    const handleDownloadLog = () => {
+        downloadLog();
+    };
+
+    const handleClearLog = () => {
+        clearLog();
+        setErrorCount(0);
     };
 
     return (
@@ -246,6 +289,19 @@ export default function CaptureView({ meta, onReset }) {
                         ← Start New Assignment
                     </button>
                 </div>
+
+                {/* Debug Log Controls */}
+                {errorCount > 0 && (
+                    <div className="debug-bar">
+                        <span className="debug-badge">⚠ {errorCount} log entries</span>
+                        <button className="btn btn-secondary debug-btn" onClick={handleDownloadLog}>
+                            ⬇ Download Log
+                        </button>
+                        <button className="btn btn-secondary debug-btn" onClick={handleClearLog}>
+                            ✕ Clear
+                        </button>
+                    </div>
+                )}
             </div>
         </>
     );
